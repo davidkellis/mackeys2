@@ -1,0 +1,121 @@
+keypress_delay_ms: 2
+
+# `modmap` section
+# For key-to-key remapping (no combinations). Remapping a key to a modifier key (e.g. CapsLock to Control_L) is supported only in `modmap` section
+modmap:
+  - name: Make ⌘ act as Ctrl
+#    application:
+#      not: [org.gnome.Terminal, org.gnome.Console]
+    remap:
+      LeftCtrl: LeftMeta
+      LeftMeta: LeftAlt
+      LeftAlt: LeftCtrl
+      RightCtrl: RightMeta
+      RightMeta: RightCtrl
+# `keymap` section
+# For remapping a sequence of key combinations to another sequence of key combinations
+keymap:
+#  - name: Test
+#    remap:
+#      Shift-A: b
+  - name: move cursor to start and end of a line (with shift for selection)
+    remap:
+      Ctrl-Left: Home
+      Ctrl-Right: End
+      Shift-Ctrl-Left: Shift-Home
+      Shift-Ctrl-Right: Shift-End
+  - name: move cursor to top and bottom of document (with shift for selection)
+    remap:
+      Ctrl-Up: Ctrl-Home
+      Ctrl-Down: Ctrl-End
+      Shift-Ctrl-Up: Up-Shift-Home
+      Shift-Ctrl-Down: Ctrl-Shift-End
+  - name: navigate forward and backward through navigation history
+    remap:
+      Ctrl-KEY_LEFTBRACE: Alt-Left
+      Ctrl-KEY_RIGHTBRACE: Alt-Right
+  - name: navigate left and right through tabs
+    remap:
+      Shift-Ctrl-KEY_LEFTBRACE: Ctrl-PageUp
+      Shift-Ctrl-KEY_RIGHTBRACE: Ctrl-PageDown
+  - name: move cursor one word at a time left and right
+    remap:
+      Alt-Left: Ctrl-Left
+      Alt-Right: Ctrl-Right
+  - name: delete one word at a time left and right
+    remap:
+      Alt-Backspace: Ctrl-Backspace
+      Alt-Delete: Ctrl-Delete
+  - name: delete everything to left and right of cursor
+    remap:
+      Ctrl-Backspace: Shift-Ctrl-Backspace
+      Ctrl-Delete: Shift-Ctrl-Delete
+  - name: Nautilus (Files) shortcuts
+    application:
+      only: org.gnome.Nautilus
+    remap:
+      Ctrl-Up: Alt-Up          # Go Up
+      Ctrl-Down: Enter         # Go Down. Using `Enter` here because `Alt-Down` does not open files, only goes down.
+      Ctrl-Backspace: Delete   # Move to Trash
+      Shift-Ctrl-Dot: Ctrl-H   # Show/Hide Hidden Files
+      Shift-Ctrl-G: Ctrl-L     # Enter Location
+      # Enter: F2              # Rename. Conflict when need to hit `Enter` in focused address bar.
+  - name: Terminal copy and paste and window management
+    application:
+      only: org.gnome.Terminal
+    remap:
+      Ctrl-C: Shift-Super-C
+      Ctrl-V: Shift-Super-V
+      Ctrl-T: Shift-Super-T
+      Ctrl-N: Shift-Super-N
+      Ctrl-W: Shift-Super-W
+      Ctrl-Q: Shift-Super-Q
+      Ctrl-F: Shift-Super-F
+  - name: Terminal and Console interrupt
+    application:
+      only: [org.gnome.Terminal, org.gnome.Console, org.gnome.Ptyxis, ptyxis]
+    remap:
+      Super-C: Ctrl-C
+  - name: Terminal and Console - make Ctrl work in `nano` editor # keycombiner.com/collections/nano/
+    application:
+      only: [org.gnome.Terminal, org.gnome.Console, org.gnome.Ptyxis, ptyxis]
+    remap:
+      Super-Q: Ctrl-Q # Interferes with GNOME close window - not sure how to work around
+      Super-W: Ctrl-W
+      Super-E: Ctrl-E
+      Super-T: Ctrl-T
+      Super-Y: Ctrl-Y
+      Super-U: Ctrl-U
+      Super-O: Ctrl-O
+      Super-P: Ctrl-P
+      Super-KEY_RIGHTBRACE: Ctrl-KEY_RIGHTBRACE
+      Super-A: Ctrl-A
+      Super-S: Ctrl-S
+# How to implement a org.gnome.Terminal key combination that conflicts with some GNOME keybinding?
+# Make a script similar to the one below. Script unsets the GNOME keybinding, then sends keys, then restores keybinding back.
+      Super-D:
+        launch: ["sh", "~/.local/bin/terminal-console-ctrl-d.sh"]
+      Super-F: Ctrl-F
+      Super-G: Ctrl-G
+      Super-H: Ctrl-H
+      Super-J: Ctrl-J
+      Super-K: Ctrl-K
+      Super-L: Ctrl-L
+      Super-Z: Ctrl-Z
+      Super-X: Ctrl-X
+#     Super-C: Ctrl-C # declared in previous sections
+      Super-V: Ctrl-V
+      Super-B: Ctrl-B
+      Super-N: Ctrl-N
+      Super-KEY_SLASH: Ctrl-KEY_SLASH
+  - name: Console and Ptyxis shortcuts
+    application:
+      only: [org.gnome.Console, org.gnome.Ptyxis, ptyxis]
+    remap:
+      Ctrl-C: Ctrl-Shift-C # Copy text
+      Ctrl-V: Ctrl-Shift-V # Paste text
+      Ctrl-N: Ctrl-Shift-N # New window
+      Ctrl-Q: Ctrl-Shift-Q # Close window
+      Ctrl-T: Ctrl-Shift-T # New tab
+      Ctrl-W: Ctrl-Shift-W # Close tab
+      Ctrl-F: Shift-Ctrl-F # Find
