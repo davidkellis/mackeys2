@@ -1,6 +1,6 @@
 # mackeys2
 
-This project is a fork of https://github.com/petrstepanov/gnome-macos-remap-wayland
+This project is a fork of https://github.com/petrstepanov/gnome-macos-remap-wayland and supersedes https://github.com/davidkellis/mackeys.
 
 This set of keybindings is built upon [Xremap](https://github.com/k0kubun/xremap) and works with Wayland and Xorg.
 
@@ -23,7 +23,7 @@ chmod +x ./install.sh
 ./install.sh
 ```
 
-3. Install and enable [this GNOME extension](https://extensions.gnome.org/extension/5060/xremap/).
+3. Install and enable [the Xremap GNOME extension](https://extensions.gnome.org/extension/5060/xremap/).
 4. Restart your computer.
 
 
