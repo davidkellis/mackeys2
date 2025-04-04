@@ -27,6 +27,36 @@ chmod +x ./install.sh
 4. Restart your computer.
 
 
+## To revise key bindings
+1. Edit `~/.config/mackeys/config.yml` in an editor and save changes
+2. Run `systemctl --user restart mackeys; systemctl --user status mackeys`
+
+For example:
+```
+❯ systemctl --user restart mackeys; systemctl --user status mackeys
+● mackeys.service - mackeys2
+     Loaded: loaded (/home/david/.local/share/systemd/user/mackeys.service; enabled; preset: enabled)
+     Active: active (running) since Fri 2025-04-04 18:00:48 CDT; 3ms ago
+   Main PID: 23977 (xremap)
+      Tasks: 1 (limit: 76684)
+     Memory: 752.0K (peak: 776.0K)
+        CPU: 1ms
+     CGroup: /user.slice/user-1000.slice/user@1000.service/app.slice/mackeys.service
+             └─23977 xremap /home/david/.config/mackeys/config.yml --watch
+
+Apr 04 18:00:48 davidlinux xremap[23977]: /dev/input/event25: HDA Intel PCH HDMI/DP,pcm=9
+Apr 04 18:00:48 davidlinux xremap[23977]: /dev/input/event3 : Power Button
+Apr 04 18:00:48 davidlinux xremap[23977]: /dev/input/event4 : Power Button
+Apr 04 18:00:48 davidlinux xremap[23977]: /dev/input/event5 : AT Translated Set 2 keyboard
+Apr 04 18:00:48 davidlinux xremap[23977]: /dev/input/event6 : PNP0C50:01 04F3:30D8 Mouse
+Apr 04 18:00:48 davidlinux xremap[23977]: /dev/input/event7 : PNP0C50:01 04F3:30D8 Touchpad
+Apr 04 18:00:48 davidlinux xremap[23977]: /dev/input/event8 : GIGABYTE USB-HID Keyboard
+Apr 04 18:00:48 davidlinux xremap[23977]: /dev/input/event9 : GIGABYTE USB-HID Keyboard Mouse
+Apr 04 18:00:48 davidlinux xremap[23977]: ------------------------------------------------------------------------------
+Apr 04 18:00:48 davidlinux xremap[23977]: Selected keyboards automatically since --device options weren't specified:
+```
+
+
 ## How to uninstall
 
 1. If repository was removed, check it out again. Navigate into the program directory in Terminal and run:
