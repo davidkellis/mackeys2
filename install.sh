@@ -108,7 +108,9 @@ EOF
 
 
     mv syncrestore/home/david/sync/ .
-    rmdir syncrestore
+    rm -rf syncrestore
+    
+    read -p "Press enter to proceed with linking things to sync " proceed
 
     ln -s sync/applications/ Applications
     rmdir Documents
