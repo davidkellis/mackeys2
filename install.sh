@@ -1,177 +1,291 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Create temporary install directory
-BASE_DIR=`pwd`
-mkdir -p ~/Downloads && cd ~/Downloads
+set -e
 
-# Remove previously downloaded archives (if any)
-rm -rf ./xremap*
+# install OS upgrades
+sudo apt update
+sudo apt upgrade -y
+sudo apt dist-upgrade -y
+sudo apt autoremove -y
+sudo apt autoclean -y
 
-# Detect architecture
-ARCH=`uname -m`
-echo "INFO: Detected ${ARCH} PC architecture."
-
-# Exit if unsupported architecture
-if [ "${ARCH}" != "x86_64" ] && [ "${ARCH}" != "aarch64" ]; then
-  echo "ERROR: Unsupported architecture. Please compile and install Xremap manually:"
-  echo "       https://github.com/k0kubun/xremap"
-  exit 1
+if [ ! -f "$HOME/restore1phase1.txt" ]; then
+  touch $HOME/restore1phase1.txt
+  echo "reboot phase 1"
+  sudo reboot
+  exit 0
 fi
 
-# Detect compositor type (X11 or Wayland)
-if [ "${XDG_SESSION_TYPE}" == "x11" ]; then
-  echo "INFO: Detected X11 compositor."
-  ARCHIVE_NAME="xremap-linux-${ARCH}-x11.zip"
-elif [ "${XDG_SESSION_TYPE}" == "wayland" ]; then
-  echo "INFO: Detected Wayland compositor."
-  ARCHIVE_NAME="xremap-linux-${ARCH}-gnome.zip"
-else
-  echo "ERROR: Unsupported compositor."
-  exit 1
+# Check if a reboot is required by apt and reboot if necessary
+if [ -f /var/run/reboot-required ]; then
+  echo "Reboot required by OS updates. Rebooting..."
+  sudo reboot
+  exit 0
 fi
 
-if which xremap > /dev/null 2>&1; then
-  echo "INFO: xremap is already installed. Skipping...."
-else
-  # Download latest release from GitHub
-  wget https://github.com/xremap/xremap/releases/latest/download/$ARCHIVE_NAME
+if [ ! -f "$HOME/restore1phase2.txt" ]; then
+  touch $HOME/restore1phase2.txt
 
-  # Extract the archive
-  echo "INFO: Extracting the archive..."
-  if ! command -v unzip &> /dev/null; then
-    echo "ERROR: Command \"unzip\" not found."
-    exit 0
+  echo "Installing mackeys2"
+
+  sudo apt install build-essential vim curl git -y
+
+  # gnome software extensions so that mackeys2 will work
+  sudo apt install gnome-browser-connector -y
+
+  # install homebrew
+  echo "Installing homebrew"
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  echo >> /home/david/.bashrc
+  echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/david/.bashrc
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+  # install mackeys2
+  cd ~/Downloads
+  
+  git clone https://github.com/xremap/xremap-gnome ~/.local/share/gnome-shell/extensions/xremap@k0kubun.com
+  # Reload your GNOME Shell session, and then enable "Xremap" using:
+  gnome-extensions-app
+  
+  git clone https://github.com/davidkellis/mackeys2.git
+  cd mackeys2
+  chmod +x ./install.sh
+  echo "installing mackeys2 with the install.sh script. this may fail early due to the service not being able to start, so you should reboot before proceeding"
+  ./install.sh
+  #cd ..
+  #rm -rf mackeys2
+  cd $HOME
+  
+
+  # restart mackeys
+  systemctl --user restart mackeys; systemctl --user status mackeys
+
+  echo "manually install https://extensions.gnome.org/extension/5282/alttab-scroll-workaround/"
+  echo "then run this script again"
+  exit 0
+fi
+
+if [ ! -f "$HOME/restore1phase3.txt" ]; then
+  touch $HOME/restore1phase3.txt
+
+  cd $HOME
+
+  # install autorestic
+  brew install restic autorestic
+
+  # restore from backup if needed
+  if [ ! -d "$HOME/sync" ]; then
+
+    # restore from backup
+    cat <<EOF > $HOME/.autorestic.yml
+global:
+  forget:
+    keep-last: 5 # always keep at least 5 snapshots
+    # keep-hourly: 3 # keep 3 last hourly snapshots
+    # keep-daily: 4 # keep 4 last daily snapshots
+    # keep-weekly: 1 # keep 1 last weekly snapshots
+    keep-monthly: 12 # keep 12 last monthly snapshots
+    # keep-yearly: 7 # keep 7 last yearly snapshots
+    # keep-within: '14d' # keep snapshots from the last 14 days
+backends:
+  synology:
+    type: sftp
+    path: david@synology.locallan.network:/david/backup/restic/davidlinux
+    key: 7qJkBpICLDgm2rSsHGRaLehW2b9Dzdx7qGjTYVg2oI9gxxaDMjY4PqkhjIIJYHGAS5fwYb0fk6WrwHx9tvaUWA
+    env: {}
+    rest:
+      user: ""
+      password: ""
+    options: {}
+locations:
+  sync:
+    from: sync
+    to: synology
+version: 2
+EOF
+
+    autorestic restore -l sync --to syncrestore
+
+
+    mv syncrestore/home/david/sync/ .
+    rmdir syncrestore
+
+    ln -s sync/applications/ Applications
+    rmdir Documents
+    ln -s sync/documents/ Documents
+    rm -rf Downloads
+    ln -s sync/downloads/ Downloads
+    rmdir Music
+    ln -s sync/music/ Music
+    rmdir Pictures
+    ln -s sync/pictures/ Pictures
+    rmdir Videos
+    ln -s sync/videos/ Videos
+    rm .autorestic.yml
+    ln -s sync/dotfiles/.autorestic.yml
+    rm -rf .bashrc
+    ln -s sync/dotfiles/.bashrc
+    ln -s sync/dotfiles/.gitconfig
+    rm -rf .profile
+    ln -s sync/dotfiles/.profile
+    ln -s sync/.secrets/
+    rm -rf .ssh
+    ln -s sync/.ssh/
+    rm -rf .zprofile
+    ln -s sync/dotfiles/.zprofile
+    rm -rf .zshrc
+    ln -s sync/dotfiles/.zshrc
   fi
-  unzip -o ./xremap-linux-${ARCH}-*.zip
 
-  # Remove old binary (if any)
-  if command -v gnome-terminal &> /dev/null ; then
-      echo "INFO: Removing old binary..."
-      sudo rm -rf /usr/local/bin/xremap
-  fi
+  # install zsh and make it the default shell
+  sudo apt install zsh -y
+  chsh -s $(which zsh)
 
-  # Install new binary (if any)
-  echo "INFO: Installing the binary..."
-  sudo cp ./xremap /usr/local/bin
+  echo "reboot phase 3"
+  sudo reboot
+  exit 0
 fi
 
-# Tweaking server access control for X11
-# https://github.com/k0kubun/xremap#x11
-if [ "${XDG_SESSION_TYPE}" == "x11" ]; then
-  xhost +SI:localuser:root
+
+if [ ! -f "$HOME/restore1phase4.txt" ]; then
+  touch $HOME/restore1phase4.txt
+
+  # install flatpak
+  sudo apt install libfuse2 -y
+  sudo apt install flatpak -y
+  flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+  flatpak update -y
+
+  sudo apt install gnome-software-plugin-flatpak -y
+
+  # install refind as boot manager
+  # sudo apt install refind -y
+
+  # install appimaged per https://github.com/probonopd/go-appimage/blob/master/src/appimaged/README.md
+  # Clear cache
+  rm "$HOME"/.local/share/applications/appimage*
+  # Download
+  mkdir -p $HOME/Applications
+  wget -c https://github.com/$(wget -q https://github.com/probonopd/go-appimage/releases/expanded_assets/continuous -O - | grep "appimaged-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 2) -P $HOME/Applications/
+  chmod +x $HOME/Applications/appimaged-*.AppImage
+  # Launch
+  $HOME/Applications/appimaged-*.AppImage
+
+  # In ubuntu 24.04, appimage doesn’t work, so we have to do the following work-around
+  # see https://github.com/electron/electron/issues/42510
+  # see https://askubuntu.com/questions/1513001/why-am-i-getting-this-flatpak-error-ldconfig-failed-exit-status-256-with-ever
+  # see https://bugs.launchpad.net/ubuntu/+source/apparmor/+bug/2064672
+  sudo sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0
+  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+  # set hostname
+  hostnamectl set-hostname davidlinux
+
+  echo "reboot phase 4"
+  sudo reboot
+  exit 0
 fi
 
-# Copy Xremap config file with macOS bindings
-CONFIG_DIR=~/.config/mackeys/
-echo "INFO: Copying the xremap config file..."
-mkdir -p $CONFIG_DIR
-cp $BASE_DIR/config.yml $CONFIG_DIR
+if [ ! -f "$HOME/restore1phase5.txt" ]; then
+  touch $HOME/restore1phase5.txt
 
-# Copy systemd service file
-SERVICE_DIR=~/.local/share/systemd/user/
-echo "INFO: Installing systemd service..."
-mkdir -p $SERVICE_DIR
-cp $BASE_DIR/mackeys.service $SERVICE_DIR
+  # install signal per https://signal.org/download/linux/
+  # NOTE: These instructions only work for 64-bit Debian-based
+  # Linux distributions such as Ubuntu, Mint etc.
 
-# Copy bash scripts
-BIN_DIR=~/.local/bin/
-echo "INFO: Copying bash scripts..."
-mkdir -p $BIN_DIR
-cp $BASE_DIR/bin/*.sh $BIN_DIR
+  # 1. Install our official public software signing key:
+  wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
+  cat signal-desktop-keyring.gpg | sudo tee /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
 
-# Run Xremap without sudo
-# https://github.com/xremap/xremap?tab=readme-ov-file#running-xremap-without-sudo
-sudo gpasswd -a ${USER} input
-echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/input.rules
+  # 2. Add our repository to your list of repositories:
+  echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main' |\
+    sudo tee /etc/apt/sources.list.d/signal-xenial.list
 
-# Instantiate the service
-systemctl --user daemon-reload
-systemctl --user enable mackeys
-systemctl --user start mackeys
+  # 3. Update your package database and install Signal:
+  sudo apt update && sudo apt install signal-desktop
 
-# Tweak gsettings
-echo "INFO: Tweaking GNOME and Mutter keybindings..."
 
-# Ensure default system xkb-options are not turned on - may interfere
-gsettings reset org.gnome.desktop.input-sources xkb-options
 
-# Disable overview key ⌘ - interferes with ⌘ + ... combinations
-gsettings set org.gnome.mutter overlay-key ''
+  # install brave browser
+  curl -fsS https://dl.brave.com/install.sh | sh
 
-# Minimize one window and all windows - conflicts with show hidden files in Nautilus
-# gsettings set org.gnome.desktop.wm.keybindings minimize "['<Control>h']"
-gsettings set org.gnome.desktop.wm.keybindings minimize "[]"
 
-# Minimize all windows
-gsettings set org.gnome.desktop.wm.keybindings show-desktop "['<Control>d']"
+  sudo apt install gnome-sushi -y
+  sudo apt install copyq -y
+  sudo apt install flameshot -y
 
-# Set switch applications to ⌘+TAB, switch application windows ⌘+`
-gsettings set org.gnome.desktop.wm.keybindings switch-applications "['<Control>Tab']"
-gsettings set org.gnome.desktop.wm.keybindings switch-applications-backward "['<Shift><Control>Tab']"
-gsettings set org.gnome.desktop.wm.keybindings switch-group "['<Control>grave']"
-gsettings set org.gnome.desktop.wm.keybindings switch-group-backward "['<Shift><Control>grave']"
+  brew install mise
 
-# ⌘ - Set default change input source shortcuts
-gsettings reset org.gnome.desktop.wm.keybindings switch-input-source
-gsettings reset org.gnome.desktop.wm.keybindings switch-input-source-backward
+  brew install starship
 
-# Switch workspaces conflicts with default GNOME window left/right tiling
-gsettings set org.gnome.mutter.keybindings toggle-tiled-left "[]"
-gsettings set org.gnome.mutter.keybindings toggle-tiled-right "[]"
+  brew install zoxide
 
-# Switch workspaces
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-left "['<Super>Left']"
-gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-right "['<Super>Right']"
+  echo "Install oh-my-zsh"
+  sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
-# Paste in terminal (if set via Ctrl+V, not Shift+Ctrl+V) interferes with default GNOME show notification panel shortcut
-gsettings set org.gnome.shell.keybindings toggle-message-tray "[]"
+  brew install delta
+  brew install ripgrep
 
-# Toggle overview (with mac's F3 key)
-gsettings set org.gnome.shell.keybindings toggle-overview "['LaunchA']"
+  echo 'install rbw (bitwarden cli)'
+  brew install pinentry
+  brew install rbw
+  rbw config set base_url https://vaultwarden.locallan.network
+  rbw config set email david@conquerthelawn.com
+  # rbw sync
 
-# Show all applications (with mac's F4 key and imitate spotlight)
-gsettings set org.gnome.shell.keybindings toggle-application-view "['<Primary>space', 'LaunchB']"
+  # install yq
+  brew install yq
 
-# Setting relocatable schema for Terminal
-if command -v gnome-terminal &> /dev/null ; then
-    echo "INFO: Found GNOME Terminal. Applying tweaks..."
-    gsettings set org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/ copy '<Shift><Super>c'
-    gsettings set org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/ paste '<Shift><Super>v'
-    gsettings set org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/ new-tab '<Shift><Super>t'
-    gsettings set org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/ new-window '<Shift><Super>n'
-    gsettings set org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/ close-tab '<Shift><Super>w'
-    gsettings set org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/ close-window '<Shift><Super>q'
-    gsettings set org.gnome.Terminal.Legacy.Keybindings:/org/gnome/terminal/legacy/keybindings/ find '<Shift><Super>f'
+  # install jaq (yq clone)
+  brew install jaq
+
+  # install ripgrep
+  brew install ripgrep
+
+  # install rq
+  cargo install record-query
+
+  # install bat (better cat)
+  brew install bat
+
+
+  sudo apt install cifs-utils -y
+
+  # synology SMB shares
+  mkdir -p $HOME/mnt/synology_david
+  mkdir -p $HOME/mnt/synology_multimedia
+  sudo tee -a /etc/fstab <<EOF
+//synology.locallan.network/david /home/david/mnt/synology_david cifs credentials=/home/david/.secrets/.smbcredentials,iocharset=utf8,uid=david,gid=david 0 0
+//synology.locallan.network/multimedia /home/david/mnt/synology_multimedia cifs credentials=/home/david/.secrets/.smbcredentials,iocharset=utf8,uid=david,gid=david 0 0
+EOF
+  sudo mount -a
+  sudo systemctl daemon-reload
+
+  # set up usb rules for connecting to circuitpython board at /dev/ttyACM0
+  # ❯ ls -al /dev/ttyACM*
+  # crw-rw---- 1 root dialout 166, 0 Aug 20 22:02 /dev/ttyACM0
+  sudo adduser david dialout	# add david user to dialout group
+
+  echo "reboot phase 5"
+  sudo reboot
+  exit 0
 fi
 
-# Screenshots
-# gsettings set org.gnome.shell.keybindings screenshot "['<Primary><Shift>numbersign']"
-# gsettings set org.gnome.shell.keybindings show-screenshot-ui "['<Shift><Control>dollar']"
-# gsettings set org.gnome.shell.keybindings screenshot-window "['<Shift><Control>percent']"
-gsettings set org.gnome.shell.keybindings screenshot "['<Shift><Control>3']"
-gsettings set org.gnome.shell.keybindings show-screenshot-ui "['<Shift><Control>4']"
-gsettings set org.gnome.shell.keybindings screenshot-window "['<Shift><Control>5']"
+if [ ! -f "$HOME/restore1phase6.txt" ]; then
+  touch $HOME/restore1phase6.txt
 
-# Disable screensaver to avoid potential issues
-gsettings set org.gnome.settings-daemon.plugins.media-keys screensaver "[]"
+  echo "Select the Emoji tab -> Change Unicode code point keyboard shortcut to Control+Shift+u"
+  ibus-setup
 
-# Restart is required in order for the changes in the `/usr/share/dbus-1/session.conf` to take place
-# Therefore cannot launch service right away
+  echo "Download https://www.nerdfonts.com/font-downloads and unzip into $HOME/Downloads/FiraCode"
+  sudo apt install font-manager -y
+  font-manager -i $HOME/Downloads/FiraCode/*.ttf
 
-
-# Download and enable Xremap GNOME extension (for Wayland only)
-systemctl --user status mackeys
-if [ "${XDG_SESSION_TYPE}" == "wayland" ]; then
-  # Check if xremap extension is enabled
-  if gnome-extensions list | grep -q "xremap@k0kubun.com"; then
-    echo "INFO: The xremap extension is already enabled."
-  else
-    RED=`tput setaf 1`
-    RESET=`tput sgr0`
-    echo "INFO: ${RED}Action Required${RESET}. Install the xremap extension and restart your PC."
-    echo "      https://extensions.gnome.org/extension/5060/xremap/"
-  fi
-else
-  gnome-extensions disable xremap@k0kubun.com
-  echo "INFO: Please restart your computer."
 fi
+
+echo '- Log into Bitwarden CLI and sync'
+echo '> rbw login'
+echo '> rbw sync'
+
+echo "- Set NVidia PRIME profile to Performance Mode to bump up refresh rate on external monitor"
+echo 'Run NVIDIA X Server Settings -> Select the PRIME Profiles select list item -> Select the NVIDIA (Performance Mode) radio button -> Click Quit button'
