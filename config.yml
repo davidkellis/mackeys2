@@ -28,7 +28,7 @@ keymap:
     remap:
       Ctrl-Up: Ctrl-Home
       Ctrl-Down: Ctrl-End
-      Shift-Ctrl-Up: Up-Shift-Home
+      Shift-Ctrl-Up: Ctrl-Shift-Home
       Shift-Ctrl-Down: Ctrl-Shift-End
   - name: navigate forward and backward through navigation history
     remap:
