@@ -1,11 +1,12 @@
 [Unit]
-Description=mackeys2
+Description=mackeys
+After=default.target
 
 [Service]
 Type=simple
 Restart=on-failure
 RestartSec=10
-ExecStart=xremap %h/.config/mackeys/config.yml --watch
+ExecStart=xremap --watch=device %h/.config/mackeys/config.yml
 
 [Install]
 WantedBy=default.target
